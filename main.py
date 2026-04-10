@@ -81,3 +81,5 @@ class StudyManager:
         except FileNotFoundError:
             print("Welcome to your new Knowledge System! Starting a new database...")
             self.topics = []
+
+    
