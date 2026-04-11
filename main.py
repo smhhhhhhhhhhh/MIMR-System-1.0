@@ -100,16 +100,49 @@ class StudyManager:
             self.topics = []
 
 # GUI LOGIC
+# STYLING
+class AppStyle:
+    # Color palette
+    BG = "#1e1e1e"
+    FG = "#d4d4d4"
+    ACCENT = "#3c3c3c"
+    BUTTON_BG = "#2d2d2d"
+    BUTTON_ACTIVE = "#4a4a4a"
+    FONT = ("Consolas", 11)
+    FONT_TITLE = ("Consolas", 18, "bold")
+
+    @staticmethod
+    def apply(root: tk.Tk):
+        root.configure(bg=AppStyle.BG)
+
+        style = ttk.Style(root)
+        style.theme_use("clam")
+
+        style.configure("TFrame", background=AppStyle.BG)
+        style.configure("TLabel", background=AppStyle.BG, foreground=AppStyle.FG, font=AppStyle.FONT)
+        style.configure("TButton",
+                        background=AppStyle.BUTTON_BG,
+                        foreground=AppStyle.FG,
+                        font=AppStyle.FONT,
+                        relief="flat",
+                        padding=6)
+        style.map("TButton",
+                  background=[("active", AppStyle.BUTTON_ACTIVE)],
+                  foreground=[("active", AppStyle.FG)])
+
 class Application(tk.Tk):
     # Main window
     def __init__(self):
         super().__init__()
         self.title("MIMR System")
         self.geometry("600x600")
+        AppStyle.apply(self)
 
     # Container for frames
         container = ttk.Frame(self)
         container.pack(fill="both", expand=True)
+        container.rowconfigure(0, weight=1)
+        container.columnconfigure(0, weight=1)
 
         self.frames = {}
 
@@ -126,20 +159,18 @@ class Application(tk.Tk):
         next_frame.tkraise()
 
 # MAIN MENU FRAME
-class MainMenu(tk.Frame):
+class MainMenu(ttk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
 
-        ttk.Label(self, text="Main Menu", font=("Arial", 18)).pack(pady=20)
+        ttk.Label(self, text="Main Menu", font=("Arial", 18)).pack(anchor="center",pady=10)
 
         ttk.Button(self, text="Add Topic",
-                   command=lambda: controller.show_frame(AddTopic)).pack(pady=5)
-
+                   command=lambda: controller.show_frame(AddTopic)).pack(fill="both", pady=5, padx=200)
         ttk.Button(self, text="Review Queue",
-                   command=lambda: controller.show_frame(ReviewQueue)).pack(pady=5)
-
+                   command=lambda: controller.show_frame(ReviewQueue)).pack(fill="both", pady=5, padx=200)
         ttk.Button(self, text="Analytics",
-                   command=lambda: controller.show_frame(Analytics)).pack(pady=5)
+                   command=lambda: controller.show_frame(Analytics)).pack(fill="both", pady=5, padx=200)
 
 
 # ADD TOPIC FRAME
@@ -147,10 +178,22 @@ class AddTopic(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
 
+
+
 # REVIEW QUEUE FRAME
 class ReviewQueue(tk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
+
+        self.rowconfigure(0, weight=1)
+        self.columnconfigure(1, weight=1)
+
+        ttk.Label(self, text="Review Queue", font=("Arial", 18)).grid(row=0, column=0, sticky="nsew")
+        tk.Listbox(self).grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
+
+        ttk.Button(self, text="Main Menu",
+                   command=lambda: controller.show_frame(MainMenu)).grid(row=1, column=0, columnspan=2, sticky="ew")
+
 
 # ANALYTICS FRAME
 class Analytics(tk.Frame):
