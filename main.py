@@ -174,14 +174,15 @@ class MainMenu(ttk.Frame):
 
 
 # ADD TOPIC FRAME
-class AddTopic(tk.Frame):
+class AddTopic(ttk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
-
-
+        self.columnconfigure(0, weight=0)
+        self.columnconfigure(1, weight=1)
+        self.columnconfigure(2, weight=0)
 
 # REVIEW QUEUE FRAME
-class ReviewQueue(tk.Frame):
+class ReviewQueue(ttk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
 
@@ -196,7 +197,7 @@ class ReviewQueue(tk.Frame):
 
 
 # ANALYTICS FRAME
-class Analytics(tk.Frame):
+class Analytics(ttk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
 
