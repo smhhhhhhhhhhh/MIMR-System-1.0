@@ -7,10 +7,6 @@ from tkinter import ttk
 from datetime import datetime
 import json
 
-# MAIN FUNCTION
-def main():
-    pass
-
 # CLASS TOPIC
 class Topic:
     def __init__(self, id: str, name: str, category: str, mastery: int, difficulty: int, last_review_date: str) -> None:
@@ -39,8 +35,6 @@ class StudyManager:
     def __init__(self):
         self.topics: list[Topic] = []
 
-    # NOTE: What if at some point, data have to be deleted?
-    # The naming convention is not too flexible yet
     def generate_id(self) -> str:
         number = len(self.topics) + 1
         return f"MIMR-T{number:03d}"
@@ -84,15 +78,8 @@ class StudyManager:
             for key, value in well.items():
                 topic = Topic(key, value['name'], value['category'], value['mastery'], value['difficulty'], value['last_review_date'])
                 self.topics.append(topic)
-        # NOTE: Notice the print here, must later be handled by GUI
         except FileNotFoundError:
             print("Welcome to your new Knowledge System! Starting a new database...")
             self.topics = []
 
-
-class MyGUI(tk.Tk):
-    def __init__(self):
-        super().__init__()
-
-if __name__ == "__main__":
-    main()
+    
