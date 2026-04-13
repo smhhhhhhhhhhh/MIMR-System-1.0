@@ -38,6 +38,9 @@ class Topic:
         priority: float = (self.difficulty*days_elapsed) / (self.mastery + 1)
         return priority
 
+    def is_recent(self, threshold: int = 60) -> bool:
+        return self.days_since_review() <= threshold
+
 # CLASS TOPIC CONTAINER
 class StudyManager:
     def __init__(self):
@@ -47,8 +50,13 @@ class StudyManager:
     # NOTE: What if at some point, data have to be deleted?
     # The naming convention is not too flexible yet
     def generate_id(self) -> str:
-        number = len(self.topics) + 1
-        return f"MIMR-T{number:03d}"
+        existing_numbers = [
+            int(t.id.split("T")[1])
+            for t in self.topics
+            if "T" in t.id
+        ]
+        next_number = max(existing_numbers, default=0) + 1
+        return f"MIMR-T{next_number:03d}"
 
     # Topic addition
     def add_topic(self, name: str, category: str, mastery: int, difficulty: int, last_review_date: str) -> None:
@@ -57,9 +65,19 @@ class StudyManager:
         self.topics.append(topic)
 
     # Review queue generation
-    def generate_queue(self) -> list[Topic]:
-        queue = sorted(self.topics, key=lambda x: x.get_priority(), reverse=True)
-        return queue
+    def generate_queue(self, limit: int = 10) -> list[Topic]:
+        eligible_topics = [
+            t for t in self.topics
+            if t.is_recent(60)
+        ]
+
+        sorted_topics = sorted(
+            eligible_topics,
+            key=lambda x: x.get_priority(),
+            reverse=True
+        )
+
+        return sorted_topics[:limit]
 
     # Mastery updating
     def update_mastery(self, topic_id: str, new_mastery: int):
@@ -200,6 +218,15 @@ class ReviewQueue(ttk.Frame):
 class Analytics(ttk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
+
+        self.rowconfigure(0, weight=1)
+        self.columnconfigure(1, weight=1)
+
+        ttk.Label(self, text="Analytics", font=("Arial", 18)).grid(row=0, column=0, sticky="nsew")
+        tk.Listbox(self).grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
+
+        ttk.Button(self, text="Main Menu",
+                   command=lambda: controller.show_frame(MainMenu)).grid(row=1, column=0, columnspan=2, sticky="ew")
 
 if __name__ == "__main__":
     main()
