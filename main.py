@@ -38,7 +38,8 @@ class Topic:
         priority: float = (self.difficulty*days_elapsed) / (self.mastery + 1)
         return priority
 
-    def is_recent(self, threshold: int = 60) -> bool:
+    # Threshold for when a topic is considered "finished" or no longer needed
+    def is_recent(self, threshold: int = 14) -> bool:
         return self.days_since_review() <= threshold
 
 # CLASS TOPIC CONTAINER
@@ -47,8 +48,6 @@ class StudyManager:
         self.topics: list[Topic] = []
 
     # Naming convention
-    # NOTE: What if at some point, data have to be deleted?
-    # The naming convention is not too flexible yet
     def generate_id(self) -> str:
         existing_numbers = [
             int(t.id.split("T")[1])
@@ -78,6 +77,53 @@ class StudyManager:
         )
 
         return sorted_topics[:limit]
+
+    # Group topics by category
+    def group_by_category(self) -> dict:
+        groups = {}
+        for t in self.topics:
+            groups.setdefault(t.category, []).append(t)
+        return groups
+
+    # Get analytics information
+    def get_analysis(self, threshold=50) -> dict:
+        groups = self.group_by_category()
+        result = {}
+
+        for category, topics in groups.items():
+            avg = sum(t.mastery for t in topics) / len(topics)
+            below = len([t for t in topics if t.mastery < threshold])
+
+            result[category] = {
+                "avg_mastery": round(avg, 2),
+                "below_threshold": below,
+                "count": len(topics)
+            }
+        return result
+
+    # Count categories below threshold
+    def count_weak_categories(self, threshold=50) -> int:
+        analysis = self.get_analysis()
+        if not analysis:
+            return 0
+        return len([cat for cat, data in analysis.items()
+                    if data["avg_mastery"] < threshold])
+
+    # List categories below threshold
+    def get_weak_categories(self, threshold=50) -> list:
+        analysis = self.get_analysis()
+        if not analysis:
+            return []
+        return[cat for cat, data in analysis.items()
+                    if data["avg_mastery"] < threshold]
+
+    # Weakest category
+    def get_weakest_category(self) -> str:
+        analysis = self.get_analysis()
+        if not analysis:
+            return ""
+        return min(analysis.items(),key=lambda x:
+                    x[1]["avg_mastery"])[0]
 
     # Mastery updating
     def update_mastery(self, topic_id: str, new_mastery: int):
