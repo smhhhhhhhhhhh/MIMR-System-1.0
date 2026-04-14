@@ -49,28 +49,28 @@ class StudyManager:
 
     # Naming convention
     def generate_id(self) -> str:
-        existing_numbers = [
+        existing_numbers: list[int] = [
             int(t.id.split("T")[1])
             for t in self.topics
             if "T" in t.id
         ]
-        next_number = max(existing_numbers, default=0) + 1
+        next_number: int = max(existing_numbers, default=0) + 1
         return f"MIMR-T{next_number:03d}"
 
     # Topic addition
     def add_topic(self, name: str, category: str, mastery: int, difficulty: int, last_review_date: str) -> None:
-        new_id = self.generate_id()
-        topic = Topic(new_id, name, category, mastery, difficulty, last_review_date)
+        new_id: str = self.generate_id()
+        topic: Topic = Topic(new_id, name, category, mastery, difficulty, last_review_date)
         self.topics.append(topic)
 
     # Review queue generation
     def generate_queue(self, limit: int = 10) -> list[Topic]:
-        eligible_topics = [
+        eligible_topics: list[Topic] = [
             t for t in self.topics
             if t.is_recent(60)
         ]
 
-        sorted_topics = sorted(
+        sorted_topics: list[Topic] = sorted(
             eligible_topics,
             key=lambda x: x.get_priority(),
             reverse=True
@@ -87,12 +87,12 @@ class StudyManager:
 
     # Get analytics information
     def get_analysis(self, threshold=50) -> dict:
-        groups = self.group_by_category()
+        groups: dict = self.group_by_category()
         result = {}
 
         for category, topics in groups.items():
-            avg = sum(t.mastery for t in topics) / len(topics)
-            below = len([t for t in topics if t.mastery < threshold])
+            avg: float = sum(t.mastery for t in topics) / len(topics)
+            below: int = len([t for t in topics if t.mastery < threshold])
 
             result[category] = {
                 "avg_mastery": round(avg, 2),
@@ -103,7 +103,7 @@ class StudyManager:
 
     # Count categories below threshold
     def count_weak_categories(self, threshold=50) -> int:
-        analysis = self.get_analysis()
+        analysis: dict = self.get_analysis()
         if not analysis:
             return 0
         return len([cat for cat, data in analysis.items()
@@ -111,7 +111,7 @@ class StudyManager:
 
     # List categories below threshold
     def get_weak_categories(self, threshold=50) -> list:
-        analysis = self.get_analysis()
+        analysis: dict = self.get_analysis()
         if not analysis:
             return []
         return[cat for cat, data in analysis.items()
@@ -119,7 +119,7 @@ class StudyManager:
 
     # Weakest category
     def get_weakest_category(self) -> str:
-        analysis = self.get_analysis()
+        analysis: dict = self.get_analysis()
         if not analysis:
             return ""
         return min(analysis.items(),key=lambda x:
@@ -156,14 +156,14 @@ class StudyManager:
             with open(filename, 'r') as file:
                 well = json.load(file)
             for key, value in well.items():
-                topic = Topic(key, value['name'], value['category'], value['mastery'], value['difficulty'], value['last_review_date'])
+                topic: Topic = Topic(key, value['name'], value['category'], value['mastery'], value['difficulty'], value['last_review_date'])
                 self.topics.append(topic)
         # NOTE: Notice the print here, must later be handled by GUI
         except FileNotFoundError:
             print("Welcome to your new Knowledge System! Starting a new database...")
             self.topics = []
 
-# GUI LOGIC
+
 # STYLING
 class AppStyle:
     # Color palette
@@ -194,10 +194,16 @@ class AppStyle:
                   background=[("active", AppStyle.BUTTON_ACTIVE)],
                   foreground=[("active", AppStyle.FG)])
 
+# GUI LOGIC
 class Application(tk.Tk):
-    # Main window
     def __init__(self):
         super().__init__()
+
+        self.manager = StudyManager()
+        self.filename = "well.json"
+
+        self.manager.load_from_json(self.filename)
+
         self.title("MIMR System")
         self.geometry("600x600")
         AppStyle.apply(self)
@@ -222,6 +228,11 @@ class Application(tk.Tk):
         next_frame = self.frames[frame]
         next_frame.tkraise()
 
+    # Save to json and close application
+    def save_and_exit(self):
+        self.manager.save_to_json(self.filename)
+        self.destroy()
+
 # MAIN MENU FRAME
 class MainMenu(ttk.Frame):
     def __init__(self, parent, controller):
@@ -235,6 +246,8 @@ class MainMenu(ttk.Frame):
                    command=lambda: controller.show_frame(ReviewQueue)).pack(fill="both", pady=5, padx=200)
         ttk.Button(self, text="Analytics",
                    command=lambda: controller.show_frame(Analytics)).pack(fill="both", pady=5, padx=200)
+        ttk.Button(self, text="Save & Exit",
+                   command=lambda: controller.save_and_exit()).pack(fill="both", pady=5, padx=200)
 
 
 # ADD TOPIC FRAME
@@ -249,6 +262,7 @@ class AddTopic(ttk.Frame):
 class ReviewQueue(ttk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
+        self.controller = controller
 
         self.rowconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
@@ -258,6 +272,9 @@ class ReviewQueue(ttk.Frame):
 
         ttk.Button(self, text="Main Menu",
                    command=lambda: controller.show_frame(MainMenu)).grid(row=1, column=0, columnspan=2, sticky="ew")
+
+    def refresh(self):
+        pass
 
 
 # ANALYTICS FRAME
