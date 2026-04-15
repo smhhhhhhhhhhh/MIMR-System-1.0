@@ -97,7 +97,6 @@ class StudyManager:
             result[category] = {
                 "avg_mastery": round(avg, 2),
                 "below_threshold": below,
-                "count": len(topics)
             }
         return result
 
@@ -126,7 +125,7 @@ class StudyManager:
                     x[1]["avg_mastery"])[0]
 
     # Mastery updating
-    def update_mastery(self, topic_id: str, new_mastery: int):
+    def update_mastery(self, topic_id: str, new_mastery: int) -> bool:
         for topic in self.topics:
             if topic.id == topic_id:
                 topic.mastery = new_mastery
@@ -158,9 +157,8 @@ class StudyManager:
             for key, value in well.items():
                 topic: Topic = Topic(key, value['name'], value['category'], value['mastery'], value['difficulty'], value['last_review_date'])
                 self.topics.append(topic)
-        # NOTE: Notice the print here, must later be handled by GUI
+
         except FileNotFoundError:
-            print("Welcome to your new Knowledge System! Starting a new database...")
             self.topics = []
 
 
@@ -228,6 +226,9 @@ class Application(tk.Tk):
         next_frame = self.frames[frame]
         next_frame.tkraise()
 
+        if hasattr(next_frame, "refresh"):
+            next_frame.refresh()
+
     # Save to json and close application
     def save_and_exit(self):
         self.manager.save_to_json(self.filename)
@@ -265,31 +266,109 @@ class ReviewQueue(ttk.Frame):
         self.controller = controller
 
         self.rowconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+        self.rowconfigure(2, weight=1)
         self.columnconfigure(1, weight=1)
 
-        ttk.Label(self, text="Review Queue", font=("Arial", 18)).grid(row=0, column=0, sticky="nsew")
-        tk.Listbox(self).grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
+        ttk.Label(self, justify="center", text="Review Queue", font=("Arial", 18)).grid(row=0, column=0, sticky="nsew")
+
+        self.mastery_entry = ttk.Entry(self)
+        self.mastery_entry.grid(row=1, rowspan=2, column=0)
+        ttk.Button(self, text="Update Mastery", command=self.update_selected).grid(row=2, column=0)
+
+        self.listbox = tk.Listbox(self)
+        self.listbox.grid(row=0, rowspan=3, column=1, padx=10, pady=10, sticky="nsew")
 
         ttk.Button(self, text="Main Menu",
-                   command=lambda: controller.show_frame(MainMenu)).grid(row=1, column=0, columnspan=2, sticky="ew")
+                   command=lambda: controller.show_frame(MainMenu)).grid(row=3, column=0, columnspan=2, sticky="ew")
 
+    # Clear listbox and insert queue
     def refresh(self):
-        pass
+        topics: list[Topic] = self.controller.manager.generate_queue()
+        self.current_topics = topics
+        self.listbox.delete(0, tk.END)
 
+        if not topics:
+            self.listbox.insert(tk.END, "No topics to review currently.")
+            return
+
+        for t in topics:
+            display = f"{t.name} | Mastery:{t.mastery} Difficulty:{t.difficulty} | Priority:{t.get_priority():.2f}"
+            self.listbox.insert(tk.END, display)
+
+    # Update mastery of selected topic
+    def update_selected(self):
+        selection = self.listbox.curselection()
+
+        if not selection:
+            return
+
+        index = selection[0]
+        selected_topic = self.current_topics[index]
+
+        try:
+            new_mastery = int(self.mastery_entry.get())
+        except ValueError:
+            return
+
+        self.controller.manager.update_mastery(selected_topic.id, new_mastery)
+        self.controller.manager.save_to_json(self.controller.filename)
+        self.refresh()
 
 # ANALYTICS FRAME
 class Analytics(ttk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
+        self.controller = controller
 
         self.rowconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
 
         ttk.Label(self, text="Analytics", font=("Arial", 18)).grid(row=0, column=0, sticky="nsew")
-        tk.Listbox(self).grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
+        self.listbox = tk.Listbox(self)
+        self.listbox.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
 
         ttk.Button(self, text="Main Menu",
                    command=lambda: controller.show_frame(MainMenu)).grid(row=1, column=0, columnspan=2, sticky="ew")
+
+    # Clear listbox and insert analytics
+    def refresh(self):
+        analysis = self.controller.manager.get_analysis()
+        weak_categories = self.controller.manager.get_weak_categories()
+        weakest = self.controller.manager.get_weakest_category()
+
+        self.listbox.delete(0, tk.END)
+
+        if not analysis:
+            self.listbox.insert(tk.END, "No data available.")
+            return
+
+        for category, data in analysis.items():
+            display = (
+                f"{category} | Average:{data['avg_mastery']} | "
+                f"Topics Below Mastery Threshold:{data['below_threshold']}"
+            )
+            self.listbox.insert(tk.END, display)
+
+        self.listbox.insert(tk.END, "")
+
+        self.listbox.insert(tk.END, "Weak Categories:")
+        count = self.controller.manager.count_weak_categories()
+        if weak_categories:
+            for cat in weak_categories:
+                self.listbox.insert(tk.END, f"- {cat}")
+        else:
+            self.listbox.insert(tk.END, "None, keep it up!")
+
+        self.listbox.insert(tk.END, f"{count} total weak categories.\n")
+        self.listbox.insert(tk.END, "")
+
+        self.listbox.insert(tk.END, "Weakest Category:")
+        if weakest:
+            avg = analysis[weakest]['avg_mastery']
+            self.listbox.insert(tk.END, f"{weakest} | Average: {avg}")
+        else:
+            self.listbox.insert(tk.END, "No data available.")
 
 if __name__ == "__main__":
     main()
