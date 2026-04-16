@@ -3,7 +3,7 @@ Mastery-Informed Memory Retention (MIMR) System
 """
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from datetime import datetime
 import json
 
@@ -34,7 +34,7 @@ class Topic:
 
     # Topic priority computation
     def get_priority(self) -> float:
-        days_elapsed: int = self.days_since_review()
+        days_elapsed: int = max(self.days_since_review(), 1)
         priority: float = (self.difficulty*days_elapsed) / (self.mastery + 1)
         return priority
 
@@ -221,6 +221,8 @@ class Application(tk.Tk):
 
         self.show_frame(MainMenu)
 
+        self.protocol("WM_DELETE_WINDOW", self.save_and_exit)
+
     # Frame switching
     def show_frame(self, frame):
         next_frame = self.frames[frame]
@@ -255,9 +257,88 @@ class MainMenu(ttk.Frame):
 class AddTopic(ttk.Frame):
     def __init__(self, parent, controller):
         super().__init__(parent)
-        self.columnconfigure(0, weight=0)
+        self.controller = controller
+
+        self.entries = {}
+
+        self.fields = [
+            ("Topic Name", "e.g. Linked Lists, Algebraic Substitution"),
+            ("Category", "e.g. Data Structures and Algorithms, Integral Calculus"),
+            ("Mastery", "1-100"),
+            ("Difficulty", "1-5")
+        ]
+
+        self.build_ui()
+        self.bind("<Return>", lambda e: self.add_topic())
+
+    # Initialize the Add Topic UI
+    def build_ui(self):
         self.columnconfigure(1, weight=1)
-        self.columnconfigure(2, weight=0)
+        self.rowconfigure(len(self.fields)+1, weight=1)
+
+        for row, (label_text, placeholder) in enumerate(self.fields):
+            ttk.Label(self, text=label_text).grid(row=row, column=0, sticky="w", padx=10, pady=5)
+            entry = ttk.Entry(self, foreground="grey")
+            entry.insert(0, placeholder)
+
+            entry.bind("<FocusIn>", lambda e, ph=placeholder: self.clear_placeholder(e, ph))
+            entry.bind("<FocusOut>", lambda e, ph=placeholder: self.restore_placeholder(e, ph))
+
+            entry.grid(row=row, column=1, sticky="ew", padx=10, pady=5)
+            self.entries[label_text] = entry
+
+        ttk.Button(self, text="Add Topic", command=self.add_topic).grid(row=len(self.fields),
+                                                                        column=0, columnspan=2,
+                                                                        pady=10)
+        ttk.Button(self, text="Main Menu", command=lambda: self.controller.show_frame(MainMenu)).grid(row=len(self.fields)+2,
+                                                                                                      column=0, padx=5, pady=5,
+                                                                                                      columnspan=2, sticky="ew")
+
+    # Clear placeholder if it is still there upon entry selection
+    def clear_placeholder(self, event, placeholder):
+        if event.widget.get() == placeholder:
+            event.widget.delete(0, tk.END)
+            event.widget.config(foreground="black")
+    # Restore placeholder if entry is empty once out of focus
+    def restore_placeholder(self, event, placeholder):
+        if not event.widget.get():
+            event.widget.insert(0, placeholder)
+            event.widget.config(foreground="grey")
+
+    # Add topic if entry input matches key
+    def add_topic(self):
+        raw = {}
+
+        for key, entry in self.entries.items():
+            raw[key] = entry.get().strip()
+
+        if any(v == "" for v in raw.values()):
+            messagebox.showwarning("Missing Fields", "Please fill in all fields.")
+            return
+
+        try:
+            mastery = int(raw["Mastery"])
+            difficulty = int(raw["Difficulty"])
+        except ValueError:
+            messagebox.showwarning("Invalid Input", "Mastery must be 1-100, and Difficulty must be 1-5.")
+            return
+
+        self.controller.manager.add_topic(
+                                          raw["Topic Name"],
+                                          raw["Category"],
+                                          mastery,
+                                          difficulty,
+                                          datetime.now().strftime("%Y-%m-%d")
+        )
+        messagebox.showinfo("Success", f"'{raw['Topic Name']}' has been added!")
+        self.reset_fields()
+
+    # After calling add_topic, clear all entries
+    def reset_fields(self):
+        for (label, placeholder), entry in zip(self.fields, self.entries.values()):
+            entry.delete(0, tk.END)
+            entry.insert(0, placeholder)
+            entry.config(foreground="grey")
 
 # REVIEW QUEUE FRAME
 class ReviewQueue(ttk.Frame):
@@ -274,13 +355,16 @@ class ReviewQueue(ttk.Frame):
 
         self.mastery_entry = ttk.Entry(self)
         self.mastery_entry.grid(row=1, rowspan=2, column=0)
+        self.mastery_entry.bind("<Return>", lambda e: self.update_selected())
         ttk.Button(self, text="Update Mastery", command=self.update_selected).grid(row=2, column=0)
 
         self.listbox = tk.Listbox(self)
         self.listbox.grid(row=0, rowspan=3, column=1, padx=10, pady=10, sticky="nsew")
 
         ttk.Button(self, text="Main Menu",
-                   command=lambda: controller.show_frame(MainMenu)).grid(row=3, column=0, columnspan=2, sticky="ew")
+                   command=lambda: controller.show_frame(MainMenu)).grid(row=3, column=0,
+                                                                         padx=5, pady=5,
+                                                                         columnspan=2, sticky="ew")
 
     # Clear listbox and insert queue
     def refresh(self):
@@ -293,7 +377,7 @@ class ReviewQueue(ttk.Frame):
             return
 
         for t in topics:
-            display = f"{t.name} | Mastery:{t.mastery} Difficulty:{t.difficulty} | Priority:{t.get_priority():.2f}"
+            display = f"{t.name} | Mastery: {t.mastery} Difficulty: {t.difficulty} | Priority: {t.get_priority():.2f}"
             self.listbox.insert(tk.END, display)
 
     # Update mastery of selected topic
@@ -329,7 +413,9 @@ class Analytics(ttk.Frame):
         self.listbox.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
 
         ttk.Button(self, text="Main Menu",
-                   command=lambda: controller.show_frame(MainMenu)).grid(row=1, column=0, columnspan=2, sticky="ew")
+                   command=lambda: controller.show_frame(MainMenu)).grid(row=1, column=0,
+                                                                         padx=5, pady=5,
+                                                                         columnspan=2, sticky="ew")
 
     # Clear listbox and insert analytics
     def refresh(self):
@@ -345,8 +431,8 @@ class Analytics(ttk.Frame):
 
         for category, data in analysis.items():
             display = (
-                f"{category} | Average:{data['avg_mastery']} | "
-                f"Topics Below Mastery Threshold:{data['below_threshold']}"
+                f"{category} | Average: {data['avg_mastery']} | "
+                f"Topics Below Mastery Threshold: {data['below_threshold']}"
             )
             self.listbox.insert(tk.END, display)
 
